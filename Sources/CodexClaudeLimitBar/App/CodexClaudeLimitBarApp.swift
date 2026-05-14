@@ -10,7 +10,7 @@ struct CodexClaudeLimitBarApp: App {
     var body: some Scene {
         MenuBarExtra {
             LimitPanelView(monitor: monitor)
-                .frame(width: 360)
+                .frame(width: 380)
                 .task {
                     monitor.start()
                 }

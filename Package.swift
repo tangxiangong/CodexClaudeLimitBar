@@ -25,7 +25,10 @@ let package = Package(
         .executableTarget(
             name: "CodexClaudeLimitBar",
             dependencies: ["CodexClaudeLimitCore"],
-            path: "Sources/CodexClaudeLimitBar"
+            path: "Sources/CodexClaudeLimitBar",
+            resources: [
+                .process("Resources")
+            ]
         )
     ]
 )

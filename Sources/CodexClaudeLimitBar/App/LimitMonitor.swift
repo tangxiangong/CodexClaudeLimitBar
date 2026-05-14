@@ -58,15 +58,15 @@ final class LimitMonitor: ObservableObject {
     var menuBarText: String {
         let parts = statuses.compactMap { status -> String? in
             guard let usage = status.usage else {
-                return status.errorMessage == nil ? "\(status.provider.shortName) --/--" : "\(status.provider.shortName) !"
+                return status.errorMessage == nil ? "\(status.provider.menuBarName) --/--" : "\(status.provider.menuBarName) !"
             }
 
             let five = usage.fiveHour.map { "\($0.roundedRemaining)" } ?? "--"
             let weekly = usage.weekly.map { "\($0.roundedRemaining)" } ?? "--"
-            return "\(status.provider.shortName) \(five)/\(weekly)"
+            return "\(status.provider.menuBarName) \(five)/\(weekly)"
         }
 
-        return parts.isEmpty ? "Limits --" : parts.joined(separator: " · ")
+        return parts.isEmpty ? "限额 --" : parts.joined(separator: " · ")
     }
 
     var overallSeverity: LimitSeverity {
@@ -84,6 +84,17 @@ final class LimitMonitor: ObservableObject {
         }
 
         return .normal
+    }
+}
+
+private extension UsageProviderKind {
+    var menuBarName: String {
+        switch self {
+        case .codex:
+            "Codex"
+        case .claude:
+            "Claude"
+        }
     }
 }
 
