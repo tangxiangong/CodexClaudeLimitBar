@@ -5,6 +5,7 @@ MODE="${1:-run}"
 APP_NAME="CodexClaudeLimitBar"
 BUNDLE_ID="local.codex-claude-limit-bar"
 MIN_SYSTEM_VERSION="14.0"
+BUILD_CONFIGURATION="release"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
@@ -17,8 +18,8 @@ RESOURCE_BUNDLE_NAME="CodexClaudeLimitBar_CodexClaudeLimitBar.bundle"
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
-swift build
-BUILD_BIN_DIR="$(swift build --show-bin-path)"
+swift build -c "$BUILD_CONFIGURATION"
+BUILD_BIN_DIR="$(swift build -c "$BUILD_CONFIGURATION" --show-bin-path)"
 BUILD_BINARY="$BUILD_BIN_DIR/$APP_NAME"
 BUILD_RESOURCE_BUNDLE="$BUILD_BIN_DIR/$RESOURCE_BUNDLE_NAME"
 
