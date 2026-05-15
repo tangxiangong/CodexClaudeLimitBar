@@ -1,6 +1,6 @@
 import Foundation
 
-public enum UsageProviderKind: String, CaseIterable, Identifiable, Sendable {
+public enum UsageProviderKind: String, CaseIterable, Hashable, Identifiable, Sendable {
     case codex
     case claude
 

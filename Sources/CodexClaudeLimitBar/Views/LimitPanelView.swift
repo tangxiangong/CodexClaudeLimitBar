@@ -4,21 +4,36 @@ import SwiftUI
 
 struct LimitPanelView: View {
     @ObservedObject var monitor: LimitMonitor
-    @Environment(\.openURL) private var openURL
+    @State private var page = LimitPanelPage.usage
+    @AppStorage(ProviderVisibilityPreferences.showCodexKey) private var showCodexUsage = true
+    @AppStorage(ProviderVisibilityPreferences.showClaudeKey) private var showClaudeUsage = true
 
     var body: some View {
+        Group {
+            switch page {
+            case .usage:
+                usagePage
+            case .settings:
+                SettingsView {
+                    page = .usage
+                }
+            }
+        }
+        .padding(14)
+    }
+
+    private var usagePage: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
 
             VStack(spacing: 10) {
-                ForEach(monitor.statuses) { status in
+                ForEach(visibleStatuses) { status in
                     ProviderSectionView(status: status)
                 }
             }
 
             actionBar
         }
-        .padding(14)
     }
 
     private var header: some View {
@@ -35,19 +50,19 @@ struct LimitPanelView: View {
 
                 Spacer()
 
-                StatusSummaryView(severity: monitor.overallSeverity)
+                StatusSummaryView(severity: visibleOverallSeverity)
             }
 
             HStack(spacing: 10) {
                 SummaryMetricView(
                     title: "最低余量",
                     value: minimumRemainingText,
-                    tint: monitor.overallSeverity.color
+                    tint: visibleOverallSeverity.color
                 )
 
                 SummaryMetricView(
                     title: "产品",
-                    value: "\(monitor.statuses.count)",
+                    value: "\(visibleStatuses.count)",
                     tint: .primary
                 )
             }
@@ -69,7 +84,7 @@ struct LimitPanelView: View {
     }
 
     private var minimumRemainingText: String {
-        let remaining = monitor.statuses.compactMap { $0.usage?.lowestRemainingPercent }.min()
+        let remaining = visibleStatuses.compactMap { $0.usage?.lowestRemainingPercent }.min()
         guard let remaining else {
             return "--"
         }
@@ -81,7 +96,7 @@ struct LimitPanelView: View {
         HStack(spacing: 8) {
             Button {
                 Task {
-                    await monitor.refresh()
+                    await monitor.refresh(userInitiated: true)
                 }
             } label: {
                 Label("刷新", systemImage: "arrow.clockwise")
@@ -91,15 +106,9 @@ struct LimitPanelView: View {
             Spacer(minLength: 4)
 
             Button {
-                openURL(URL(string: "https://chatgpt.com/codex/settings/usage")!)
+                page = .settings
             } label: {
-                Label("Codex", systemImage: "safari")
-            }
-
-            Button {
-                openURL(URL(string: "https://claude.ai/settings/usage")!)
-            } label: {
-                Label("Claude Code", systemImage: "safari")
+                Label("设置", systemImage: "gearshape")
             }
 
             Button {
@@ -114,12 +123,42 @@ struct LimitPanelView: View {
         .padding(.top, 2)
     }
 
+    private var visibleStatuses: [ProviderStatus] {
+        ProviderVisibilityPreferences.filter(
+            monitor.statuses,
+            showCodex: showCodexUsage,
+            showClaude: showClaudeUsage
+        )
+    }
+
+    private var visibleOverallSeverity: LimitSeverity {
+        let remaining = visibleStatuses.compactMap { $0.usage?.lowestRemainingPercent }.min()
+        guard let remaining else {
+            return visibleStatuses.contains(where: { $0.errorMessage != nil }) ? .danger : .neutral
+        }
+
+        if remaining <= 15 {
+            return .danger
+        }
+
+        if remaining <= 35 {
+            return .warning
+        }
+
+        return .normal
+    }
+
     private static let refreshFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_Hans_CN")
         formatter.dateFormat = "HH:mm"
         return formatter
     }()
+}
+
+private enum LimitPanelPage {
+    case usage
+    case settings
 }
 
 private struct StatusSummaryView: View {
@@ -229,10 +268,7 @@ struct ProviderSectionView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                Text(status.errorMessage ?? "暂无数据")
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .fixedSize(horizontal: false, vertical: true)
+                ProviderErrorView(message: status.errorMessage)
             }
         }
         .padding(12)
@@ -253,6 +289,73 @@ struct ProviderSectionView: View {
 
     private func primaryWindows(from usage: ProviderUsage) -> [LimitWindow] {
         [usage.fiveHour, usage.weekly].compactMap { $0 }
+    }
+}
+
+private struct ProviderErrorView: View {
+    let message: String?
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.caption)
+                .foregroundStyle(.red)
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(summary.title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.red)
+
+                Text(summary.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var summary: (title: String, detail: String) {
+        guard let message, !message.isEmpty else {
+            return ("暂无数据", "还没有获取到该服务的用量信息。")
+        }
+
+        if message.contains("HTTP 429")
+            || message.localizedCaseInsensitiveContains("rate_limit_error")
+            || message.localizedCaseInsensitiveContains("rate limited") {
+            return ("请求过于频繁", "Claude API 暂时限流，请稍后再刷新。")
+        }
+
+        if message.contains("HTTP 401") || message.localizedCaseInsensitiveContains("unauthorized") {
+            return ("登录状态失效", "请重新登录后再刷新用量。")
+        }
+
+        if message.localizedCaseInsensitiveContains("credentials not found")
+            || message.localizedCaseInsensitiveContains("missing credentials") {
+            return ("未找到登录信息", "请先完成对应服务的登录。")
+        }
+
+        return ("获取失败", sanitizedDetail(from: message))
+    }
+
+    private func sanitizedDetail(from message: String) -> String {
+        let firstLine = message
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: #" +"#, with: " ", options: .regularExpression)
+            .split(separator: "{", maxSplits: 1, omittingEmptySubsequences: true)
+            .first
+            .map(String.init)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard let firstLine, !firstLine.isEmpty else {
+            return "请稍后重试。"
+        }
+
+        if firstLine.count > 120 {
+            return "\(firstLine.prefix(120))..."
+        }
+
+        return firstLine
     }
 }
 

@@ -4,15 +4,32 @@ import SwiftUI
 
 struct MenuBarLabelView: View {
     @ObservedObject var monitor: LimitMonitor
+    @AppStorage(ProviderVisibilityPreferences.showCodexKey) private var showCodexUsage = true
+    @AppStorage(ProviderVisibilityPreferences.showClaudeKey) private var showClaudeUsage = true
 
     var body: some View {
-        let image = MenuBarStatusImageRenderer.image(for: monitor.statuses)
+        let visibleProviders = ProviderVisibilityPreferences.visibleProviders(
+            showCodex: showCodexUsage,
+            showClaude: showClaudeUsage
+        )
+        let image = MenuBarStatusImageRenderer.image(
+            for: monitor.statuses,
+            providers: visibleProviders
+        )
 
         Image(nsImage: image)
             .renderingMode(.template)
             .interpolation(.high)
             .frame(width: image.size.width, height: image.size.height)
-            .accessibilityLabel(monitor.menuBarText)
+            .accessibilityLabel(accessibilityText(for: visibleProviders))
+    }
+
+    private func accessibilityText(for providers: [UsageProviderKind]) -> String {
+        providers.map { provider in
+            let status = monitor.statuses.first { $0.provider == provider } ?? ProviderStatus(provider: provider)
+            return "\(provider.accessibilityName) \(status.remainingText)"
+        }
+        .joined(separator: "，")
     }
 }
 
@@ -23,8 +40,8 @@ private enum MenuBarStatusImageRenderer {
     private static let providerSpacing: CGFloat = 8
     private static let textYCorrection: CGFloat = -0.5
 
-    static func image(for statuses: [ProviderStatus]) -> NSImage {
-        let orderedStatuses = UsageProviderKind.allCases.map { provider in
+    static func image(for statuses: [ProviderStatus], providers: [UsageProviderKind]) -> NSImage {
+        let orderedStatuses = providers.map { provider in
             statuses.first { $0.provider == provider } ?? ProviderStatus(provider: provider)
         }
         let segments = orderedStatuses.map { MenuBarStatusSegment(status: $0) }
@@ -80,6 +97,17 @@ private enum MenuBarStatusImageRenderer {
 
         image.isTemplate = true
         return image
+    }
+}
+
+private extension UsageProviderKind {
+    var accessibilityName: String {
+        switch self {
+        case .codex:
+            "Codex"
+        case .claude:
+            "Claude Code"
+        }
     }
 }
 

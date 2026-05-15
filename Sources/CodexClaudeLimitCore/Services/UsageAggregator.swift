@@ -11,8 +11,16 @@ public struct UsageAggregator: Sendable {
     }
 
     public func fetchAll() async -> [ProviderStatus] {
+        await fetch(providers: Set(UsageProviderKind.allCases))
+    }
+
+    public func fetch(providers requestedProviders: Set<UsageProviderKind>) async -> [ProviderStatus] {
         await withTaskGroup(of: ProviderStatus.self) { group in
             for provider in providers {
+                guard requestedProviders.contains(provider.kind) else {
+                    continue
+                }
+
                 group.addTask {
                     do {
                         let usage = try await provider.fetchUsage()
