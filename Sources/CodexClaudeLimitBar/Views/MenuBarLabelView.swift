@@ -27,31 +27,42 @@ struct MenuBarLabelView: View {
     private func accessibilityText(for providers: [UsageProviderKind]) -> String {
         providers.map { provider in
             let status = monitor.statuses.first { $0.provider == provider } ?? ProviderStatus(provider: provider)
-            return "\(provider.accessibilityName) \(status.remainingText)"
+            return "\(provider.accessibilityName) \(status.accessibilityRemainingText)"
         }
         .joined(separator: "，")
     }
 }
 
 private enum MenuBarStatusImageRenderer {
-    private static let canvasHeight: CGFloat = 18
-    private static let iconSize: CGFloat = 14
+    private static let canvasHeight: CGFloat = 26
+    private static let iconSize: CGFloat = 18
     private static let iconTextSpacing: CGFloat = 3
+    private static let columnSpacing: CGFloat = 5
     private static let providerSpacing: CGFloat = 8
-    private static let textYCorrection: CGFloat = -0.5
+    private static let lineSpacing: CGFloat = -2
 
     static func image(for statuses: [ProviderStatus], providers: [UsageProviderKind]) -> NSImage {
         let orderedStatuses = providers.map { provider in
             statuses.first { $0.provider == provider } ?? ProviderStatus(provider: provider)
         }
         let segments = orderedStatuses.map { MenuBarStatusSegment(status: $0) }
-        let font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
-        let textAttributes: [NSAttributedString.Key: Any] = [
-            .font: font,
+        let labelFont = NSFont.systemFont(ofSize: 10.5, weight: .semibold)
+        let valueFont = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .bold)
+        let labelAttributes: [NSAttributedString.Key: Any] = [
+            .font: labelFont,
+            .foregroundColor: NSColor.black
+        ]
+        let valueAttributes: [NSAttributedString.Key: Any] = [
+            .font: valueFont,
             .foregroundColor: NSColor.black
         ]
         let widths = segments.map { segment in
-            iconSize + iconTextSpacing + segment.textSize(attributes: textAttributes).width
+            iconSize + iconTextSpacing + segment.blockSize(
+                labelAttributes: labelAttributes,
+                valueAttributes: valueAttributes,
+                columnSpacing: columnSpacing,
+                lineSpacing: lineSpacing
+            ).width
         }
         let totalWidth = widths.reduce(0, +) + providerSpacing * CGFloat(max(segments.count - 1, 0))
         let canvasSize = NSSize(width: ceil(totalWidth), height: canvasHeight)
@@ -77,15 +88,43 @@ private enum MenuBarStatusImageRenderer {
 
                 x += iconSize + iconTextSpacing
 
-                let textSize = segment.textSize(attributes: textAttributes)
-                segment.text.draw(
-                    at: NSPoint(
-                        x: x,
-                        y: ((canvasHeight - textSize.height) / 2) + textYCorrection
-                    ),
-                    withAttributes: textAttributes
+                let blockSize = segment.blockSize(
+                    labelAttributes: labelAttributes,
+                    valueAttributes: valueAttributes,
+                    columnSpacing: columnSpacing,
+                    lineSpacing: lineSpacing
                 )
-                x += textSize.width
+
+                var columnX = x
+                for column in segment.columns {
+                    let columnSize = column.size(
+                        labelAttributes: labelAttributes,
+                        valueAttributes: valueAttributes,
+                        lineSpacing: lineSpacing
+                    )
+                    let labelSize = column.labelSize(attributes: labelAttributes)
+                    let valueSize = column.valueSize(attributes: valueAttributes)
+                    let textBaseY = (canvasHeight - blockSize.height) / 2
+
+                    column.labelText.draw(
+                        at: NSPoint(
+                            x: columnX + ((columnSize.width - labelSize.width) / 2),
+                            y: textBaseY + valueSize.height + lineSpacing
+                        ),
+                        withAttributes: labelAttributes
+                    )
+                    column.valueText.draw(
+                        at: NSPoint(
+                            x: columnX + ((columnSize.width - valueSize.width) / 2),
+                            y: textBaseY
+                        ),
+                        withAttributes: valueAttributes
+                    )
+
+                    columnX += columnSize.width + columnSpacing
+                }
+
+                x += blockSize.width
 
                 if index < segments.count - 1 {
                     x += providerSpacing
@@ -113,17 +152,67 @@ private extension UsageProviderKind {
 
 private struct MenuBarStatusSegment {
     let provider: UsageProviderKind
-    let text: NSString
+    let columns: [MenuBarStatusColumn]
     let opacity: CGFloat
 
     init(status: ProviderStatus) {
         provider = status.provider
-        text = NSString(string: status.remainingText)
+        columns = status.menuBarColumns.map {
+            MenuBarStatusColumn(label: $0.label, value: $0.value)
+        }
         opacity = status.errorMessage == nil ? 1 : 0.55
     }
 
-    func textSize(attributes: [NSAttributedString.Key: Any]) -> NSSize {
-        text.size(withAttributes: attributes)
+    func blockSize(
+        labelAttributes: [NSAttributedString.Key: Any],
+        valueAttributes: [NSAttributedString.Key: Any],
+        columnSpacing: CGFloat,
+        lineSpacing: CGFloat
+    ) -> NSSize {
+        let columnSizes = columns.map {
+            $0.size(
+                labelAttributes: labelAttributes,
+                valueAttributes: valueAttributes,
+                lineSpacing: lineSpacing
+            )
+        }
+        let columnGapWidth = columnSpacing * CGFloat(max(columnSizes.count - 1, 0))
+
+        return NSSize(
+            width: columnSizes.reduce(0) { $0 + $1.width } + columnGapWidth,
+            height: columnSizes.map(\.height).max() ?? 0
+        )
+    }
+}
+
+private struct MenuBarStatusColumn {
+    let labelText: NSString
+    let valueText: NSString
+
+    init(label: String, value: String) {
+        labelText = NSString(string: label)
+        valueText = NSString(string: value)
+    }
+
+    func labelSize(attributes: [NSAttributedString.Key: Any]) -> NSSize {
+        labelText.size(withAttributes: attributes)
+    }
+
+    func valueSize(attributes: [NSAttributedString.Key: Any]) -> NSSize {
+        valueText.size(withAttributes: attributes)
+    }
+
+    func size(
+        labelAttributes: [NSAttributedString.Key: Any],
+        valueAttributes: [NSAttributedString.Key: Any],
+        lineSpacing: CGFloat
+    ) -> NSSize {
+        let labelSize = labelSize(attributes: labelAttributes)
+        let valueSize = valueSize(attributes: valueAttributes)
+        return NSSize(
+            width: max(labelSize.width, valueSize.width),
+            height: labelSize.height + lineSpacing + valueSize.height
+        )
     }
 }
 
@@ -164,15 +253,44 @@ private enum MenuBarIconImage {
 }
 
 private extension ProviderStatus {
-    var remainingText: String {
+    var menuBarColumns: [(label: String, value: String)] {
         guard let usage else {
-            return errorMessage == nil ? "--%" : "!"
+            let value = errorMessage == nil ? "--%" : "!"
+            return [
+                ("5h", value),
+                ("week", value)
+            ]
         }
 
-        guard let remaining = usage.lowestRemainingPercent else {
+        return usage.menuBarColumns
+    }
+
+    var accessibilityRemainingText: String {
+        guard let usage else {
+            return errorMessage == nil ? "暂无用量" : "获取失败"
+        }
+
+        return usage.accessibilityRemainingText
+    }
+}
+
+private extension ProviderUsage {
+    var menuBarColumns: [(label: String, value: String)] {
+        [
+            ("5h", percentText(for: fiveHour)),
+            ("week", percentText(for: weekly))
+        ]
+    }
+
+    var accessibilityRemainingText: String {
+        "5 小时 \(percentText(for: fiveHour))，每周 \(percentText(for: weekly))"
+    }
+
+    private func percentText(for window: LimitWindow?) -> String {
+        guard let window else {
             return "--%"
         }
 
-        return "\(Int(remaining.rounded()))%"
+        return "\(window.roundedRemaining)%"
     }
 }

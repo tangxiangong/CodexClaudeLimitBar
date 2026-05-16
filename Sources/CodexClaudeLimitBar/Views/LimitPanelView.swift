@@ -112,8 +112,6 @@ struct ProviderSectionView: View {
                 if status.isRefreshing {
                     ProgressView()
                         .controlSize(.small)
-                } else if let usage = status.usage {
-                    RemainingBadge(percent: usage.lowestRemainingPercent, theme: theme)
                 }
             }
 
@@ -236,45 +234,6 @@ private struct ProviderErrorView: View {
         }
 
         return firstLine
-    }
-}
-
-private struct RemainingBadge: View {
-    let percent: Double?
-    let theme: ProviderTheme
-
-    var body: some View {
-        Text(text)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(textColor)
-            .monospacedDigit()
-            .padding(.horizontal, 8)
-            .padding(.vertical, 2)
-            .background(badgeBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-    }
-
-    private var text: String {
-        guard let percent else {
-            return "--"
-        }
-
-        return "剩余 \(Int(percent.rounded()))%"
-    }
-
-    private var textColor: Color {
-        guard let percent else {
-            return .secondary
-        }
-
-        return theme.effectiveAccentText(remainingPercent: percent)
-    }
-
-    private var badgeBackground: Color {
-        guard percent != nil else {
-            return .secondary.opacity(0.1)
-        }
-
-        return theme.badgeBackground
     }
 }
 
