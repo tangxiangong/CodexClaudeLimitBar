@@ -3,7 +3,7 @@ set -euo pipefail
 
 MODE="${1:-run}"
 APP_NAME="CodexClaudeLimitBar"
-BUNDLE_ID="local.codex-claude-limit-bar"
+BUNDLE_ID="com.xiaoyu.CodexClaudeLimitBar"
 MIN_SYSTEM_VERSION="14.0"
 BUILD_CONFIGURATION="release"
 
@@ -15,7 +15,7 @@ APP_MACOS="$APP_CONTENTS/MacOS"
 APP_RESOURCES="$APP_CONTENTS/Resources"
 APP_BINARY="$APP_MACOS/$APP_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
-RESOURCE_BUNDLE_NAME="CodexClaudeLimitBar_CodexClaudeLimitBar.bundle"
+APP_RESOURCE_SOURCE="$ROOT_DIR/Sources/CodexClaudeLimitBar/Resources"
 APP_ICON_SOURCE="$ROOT_DIR/icon.png"
 APP_ICON_NAME="AppIcon"
 APP_ICON_FILE="$APP_RESOURCES/$APP_ICON_NAME.icns"
@@ -46,15 +46,14 @@ pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 swift build -c "$BUILD_CONFIGURATION"
 BUILD_BIN_DIR="$(swift build -c "$BUILD_CONFIGURATION" --show-bin-path)"
 BUILD_BINARY="$BUILD_BIN_DIR/$APP_NAME"
-BUILD_RESOURCE_BUNDLE="$BUILD_BIN_DIR/$RESOURCE_BUNDLE_NAME"
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
 
-if [[ -d "$BUILD_RESOURCE_BUNDLE" ]]; then
-  cp -R "$BUILD_RESOURCE_BUNDLE" "$APP_BUNDLE/$RESOURCE_BUNDLE_NAME"
+if [[ -d "$APP_RESOURCE_SOURCE" ]]; then
+  cp -R "$APP_RESOURCE_SOURCE"/. "$APP_RESOURCES/"
 fi
 
 if [[ -f "$APP_ICON_SOURCE" ]]; then
@@ -88,11 +87,16 @@ cat >"$INFO_PLIST" <<PLIST
 </plist>
 PLIST
 
+/usr/bin/codesign --force --sign - "$APP_BUNDLE"
+
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"
 }
 
 case "$MODE" in
+  package|--package)
+    echo "Packaged $APP_BUNDLE"
+    ;;
   run)
     open_app
     ;;
@@ -113,7 +117,7 @@ case "$MODE" in
     pgrep -x "$APP_NAME" >/dev/null
     ;;
   *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify]" >&2
+    echo "usage: $0 [package|run|--debug|--logs|--telemetry|--verify]" >&2
     exit 2
     ;;
 esac

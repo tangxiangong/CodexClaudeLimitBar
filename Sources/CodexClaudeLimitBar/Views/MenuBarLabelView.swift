@@ -151,14 +151,11 @@ private enum MenuBarIconImage {
     private static let claudeCode = load("claude-code-menu")
 
     private static func load(_ name: String) -> NSImage? {
-        let rootURL = Bundle.module.url(forResource: name, withExtension: "svg")
-        let nestedURL = Bundle.module.url(
+        guard let url = AppResourceLocator.url(
             forResource: name,
             withExtension: "svg",
             subdirectory: "MenuBarLogos"
-        )
-
-        guard let url = rootURL ?? nestedURL else {
+        ) else {
             return nil
         }
 

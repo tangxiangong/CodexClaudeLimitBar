@@ -40,4 +40,4 @@ To stage and launch a local `.app` bundle:
 ./script/build_and_run.sh
 ```
 
-The script writes `dist/CodexClaudeLimitBar.app`, generates `Contents/Resources/AppIcon.icns` from the root `icon.png`, copies the SwiftPM resource bundle, and supports `run`, `--debug`, `--logs`, `--telemetry`, and `--verify` modes.
+The script writes `dist/CodexClaudeLimitBar.app`, generates `Contents/Resources/AppIcon.icns` from the root `icon.png`, copies app resources into `Contents/Resources`, signs the staged bundle ad-hoc, and supports `package`, `run`, `--debug`, `--logs`, `--telemetry`, and `--verify` modes.

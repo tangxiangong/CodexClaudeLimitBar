@@ -26,6 +26,7 @@ struct CodexClaudeLimitBarApp: App {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        ProcessInfo.processInfo.disableAutomaticTermination("CodexClaudeLimitBar runs as a menu bar agent.")
         NSApp.setActivationPolicy(.accessory)
     }
 }

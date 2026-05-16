@@ -47,14 +47,11 @@ private enum BrandLogoImage {
     private static let claudeCode = load("claude-code-color")
 
     private static func load(_ name: String) -> NSImage? {
-        let rootURL = Bundle.module.url(forResource: name, withExtension: "png")
-        let nestedURL = Bundle.module.url(
+        guard let url = AppResourceLocator.url(
             forResource: name,
             withExtension: "png",
             subdirectory: "Logos"
-        )
-
-        guard let url = rootURL ?? nestedURL else {
+        ) else {
             return nil
         }
 
