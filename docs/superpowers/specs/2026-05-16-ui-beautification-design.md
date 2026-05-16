@@ -61,7 +61,7 @@ Each card gets:
 3. **Logo icon** — use existing `BrandLogoView` in a gradient-filled rounded rect (34x34pt icon container with 8pt corner radius)
 4. **Remaining badge** — pill with brand-tinted background and brand-colored text, replacing the current `RemainingBadge` dot+text
 5. **Gradient progress bars** — `LinearGradient` from brand base to brand light instead of flat `.tint()` color. Bar height: 6pt with 3pt corner radius
-6. **Source link** — keep existing style, muted tertiary color
+6. **Source link** — remove the `sourceDescription` label (the 🔗 platform.openai.com / api.anthropic.com line)
 
 ### LimitWindowRow changes
 - Replace `ProgressView` with a custom `GeometryReader`-based bar that draws a `RoundedRectangle` fill with `LinearGradient`
