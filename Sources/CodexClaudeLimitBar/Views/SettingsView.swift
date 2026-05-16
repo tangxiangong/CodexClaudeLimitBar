@@ -142,11 +142,20 @@ private struct ProviderVisibilityRow: View {
     let provider: UsageProviderKind
     @Binding var isOn: Bool
     let isDisabled: Bool
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var theme: ProviderTheme {
+        .theme(for: provider, colorScheme: colorScheme)
+    }
 
     var body: some View {
         HStack(spacing: 12) {
-            BrandLogoView(provider: provider, size: 28)
-                .frame(width: 36, height: 36)
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(theme.iconGradient)
+                BrandLogoView(provider: provider, size: 20)
+            }
+            .frame(width: 34, height: 34)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(provider.settingsTitle)
