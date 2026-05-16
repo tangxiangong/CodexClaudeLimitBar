@@ -24,8 +24,6 @@ struct LimitPanelView: View {
 
     private var usagePage: some View {
         VStack(alignment: .leading, spacing: 12) {
-            header
-
             VStack(spacing: 10) {
                 ForEach(visibleStatuses) { status in
                     ProviderSectionView(status: status)
@@ -34,62 +32,6 @@ struct LimitPanelView: View {
 
             actionBar
         }
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 10) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("限额监控")
-                        .font(.headline.weight(.semibold))
-
-                    Text(refreshText)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                StatusSummaryView(severity: visibleOverallSeverity)
-            }
-
-            HStack(spacing: 10) {
-                SummaryMetricView(
-                    title: "最低余量",
-                    value: minimumRemainingText,
-                    tint: visibleOverallSeverity.color
-                )
-
-                SummaryMetricView(
-                    title: "产品",
-                    value: "\(visibleStatuses.count)",
-                    tint: .primary
-                )
-            }
-        }
-        .padding(12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(.separator.opacity(0.35), lineWidth: 1)
-        }
-    }
-
-    private var refreshText: String {
-        guard let lastRefresh = monitor.lastRefresh else {
-            return monitor.isRefreshing ? "正在获取最新限额" : "等待首次刷新"
-        }
-
-        return "更新于 \(Self.refreshFormatter.string(from: lastRefresh))"
-    }
-
-    private var minimumRemainingText: String {
-        let remaining = visibleStatuses.compactMap { $0.usage?.lowestRemainingPercent }.min()
-        guard let remaining else {
-            return "--"
-        }
-
-        return "\(Int(remaining.rounded()))%"
     }
 
     private var actionBar: some View {
@@ -130,30 +72,6 @@ struct LimitPanelView: View {
             showClaude: showClaudeUsage
         )
     }
-
-    private var visibleOverallSeverity: LimitSeverity {
-        let remaining = visibleStatuses.compactMap { $0.usage?.lowestRemainingPercent }.min()
-        guard let remaining else {
-            return visibleStatuses.contains(where: { $0.errorMessage != nil }) ? .danger : .neutral
-        }
-
-        if remaining <= 15 {
-            return .danger
-        }
-
-        if remaining <= 35 {
-            return .warning
-        }
-
-        return .normal
-    }
-
-    private static let refreshFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_Hans_CN")
-        formatter.dateFormat = "HH:mm"
-        return formatter
-    }()
 }
 
 private enum LimitPanelPage {
@@ -161,65 +79,23 @@ private enum LimitPanelPage {
     case settings
 }
 
-private struct StatusSummaryView: View {
-    let severity: LimitSeverity
-
-    var body: some View {
-        HStack(spacing: 5) {
-            if severity == .neutral {
-                ProgressView()
-                    .controlSize(.small)
-            } else {
-                Circle()
-                    .fill(severity.color)
-                    .frame(width: 7, height: 7)
-            }
-
-            Text(severity.localizedTitle)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(severity.color)
-        }
-        .padding(.horizontal, 7)
-        .padding(.vertical, 4)
-        .background(severity.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-    }
-}
-
-private struct SummaryMetricView: View {
-    let title: String
-    let value: String
-    let tint: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-
-            Text(value)
-                .font(.system(.title3, design: .rounded, weight: .semibold))
-                .foregroundStyle(tint)
-                .monospacedDigit()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(.background.opacity(0.45), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-    }
-}
-
 struct ProviderSectionView: View {
     let status: ProviderStatus
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var theme: ProviderTheme {
+        .theme(for: status.provider, colorScheme: colorScheme)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center, spacing: 10) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(.background.opacity(0.72))
-                    BrandLogoView(provider: status.provider, size: 28)
+                        .fill(theme.iconGradient)
+                    BrandLogoView(provider: status.provider, size: 22)
                 }
-                .frame(width: 42, height: 42)
+                .frame(width: 34, height: 34)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(status.provider.productDisplayName)
@@ -237,14 +113,14 @@ struct ProviderSectionView: View {
                     ProgressView()
                         .controlSize(.small)
                 } else if let usage = status.usage {
-                    RemainingBadge(percent: usage.lowestRemainingPercent)
+                    RemainingBadge(percent: usage.lowestRemainingPercent, theme: theme)
                 }
             }
 
             if let usage = status.usage {
                 VStack(spacing: 8) {
                     ForEach(primaryWindows(from: usage)) { window in
-                        LimitWindowRow(window: window)
+                        LimitWindowRow(window: window, theme: theme)
                     }
                 }
 
@@ -258,11 +134,6 @@ struct ProviderSectionView: View {
                     }
                     .font(.caption)
                 }
-
-                Label(usage.sourceDescription, systemImage: "link")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
             } else if status.isRefreshing {
                 Text("正在刷新...")
                     .font(.caption)
@@ -272,10 +143,10 @@ struct ProviderSectionView: View {
             }
         }
         .padding(12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(theme.cardBackground, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(.separator.opacity(0.3), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(theme.cardBorder, lineWidth: 1)
         }
     }
 
@@ -361,18 +232,16 @@ private struct ProviderErrorView: View {
 
 private struct RemainingBadge: View {
     let percent: Double?
+    let theme: ProviderTheme
 
     var body: some View {
-        HStack(spacing: 5) {
-            Circle()
-                .fill(color)
-                .frame(width: 7, height: 7)
-
-            Text(text)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(color)
-                .monospacedDigit()
-        }
+        Text(text)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(textColor)
+            .monospacedDigit()
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(badgeBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     private var text: String {
@@ -383,25 +252,26 @@ private struct RemainingBadge: View {
         return "剩余 \(Int(percent.rounded()))%"
     }
 
-    private var color: Color {
+    private var textColor: Color {
         guard let percent else {
             return .secondary
         }
 
-        if percent <= 15 {
-            return .red
+        return theme.effectiveAccentText(remainingPercent: percent)
+    }
+
+    private var badgeBackground: Color {
+        guard percent != nil else {
+            return .secondary.opacity(0.1)
         }
 
-        if percent <= 35 {
-            return .orange
-        }
-
-        return .green
+        return theme.badgeBackground
     }
 }
 
 struct LimitWindowRow: View {
     let window: LimitWindow
+    let theme: ProviderTheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -414,14 +284,23 @@ struct LimitWindowRow: View {
 
                 Text("剩余 \(window.roundedRemaining)%")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(severityColor)
+                    .foregroundStyle(theme.effectiveAccentText(remainingPercent: window.remainingPercent))
                     .monospacedDigit()
             }
 
-            ProgressView(value: window.remainingPercent, total: 100)
-                .tint(severityColor)
-                .accessibilityLabel(window.localizedTitle)
-                .accessibilityValue("剩余 \(window.roundedRemaining)%")
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                        .fill(theme.barTrack)
+
+                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                        .fill(theme.effectiveBarGradient(remainingPercent: window.remainingPercent))
+                        .frame(width: max(0, geo.size.width * window.remainingPercent / 100))
+                }
+            }
+            .frame(height: 6)
+            .accessibilityLabel(window.localizedTitle)
+            .accessibilityValue("剩余 \(window.roundedRemaining)%")
 
             HStack {
                 Text("已用 \(window.roundedUsed)%")
@@ -432,18 +311,6 @@ struct LimitWindowRow: View {
             .foregroundStyle(.tertiary)
             .monospacedDigit()
         }
-    }
-
-    private var severityColor: Color {
-        if window.remainingPercent <= 15 {
-            return .red
-        }
-
-        if window.remainingPercent <= 35 {
-            return .orange
-        }
-
-        return .green
     }
 
     private var resetText: String {
@@ -505,21 +372,6 @@ private extension UsageProviderKind {
             "OpenAI Codex"
         case .claude:
             "Anthropic Claude Code"
-        }
-    }
-}
-
-private extension LimitSeverity {
-    var localizedTitle: String {
-        switch self {
-        case .neutral:
-            "等待数据"
-        case .normal:
-            "余量充足"
-        case .warning:
-            "余量偏低"
-        case .danger:
-            "需要关注"
         }
     }
 }
