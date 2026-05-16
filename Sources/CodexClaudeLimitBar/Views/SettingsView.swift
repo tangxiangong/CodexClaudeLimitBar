@@ -4,6 +4,7 @@ import SwiftUI
 struct SettingsView: View {
     let onBack: () -> Void
 
+    @StateObject private var launchAtLogin = LaunchAtLoginController()
     @AppStorage(ProviderVisibilityPreferences.showCodexKey) private var showCodexUsage = true
     @AppStorage(ProviderVisibilityPreferences.showClaudeKey) private var showClaudeUsage = true
 
@@ -44,8 +45,21 @@ struct SettingsView: View {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(.separator.opacity(0.35), lineWidth: 1)
             }
+
+            VStack(spacing: 0) {
+                LaunchAtLoginRow(controller: launchAtLogin)
+            }
+            .padding(12)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(.separator.opacity(0.35), lineWidth: 1)
+            }
         }
-        .onAppear(perform: normalizeVisibility)
+        .onAppear {
+            normalizeVisibility()
+            launchAtLogin.refresh()
+        }
     }
 
     private func providerBinding(_ provider: UsageProviderKind) -> Binding<Bool> {
@@ -83,6 +97,44 @@ struct SettingsView: View {
             showCodexUsage = true
             showClaudeUsage = true
         }
+    }
+}
+
+private struct LaunchAtLoginRow: View {
+    @ObservedObject var controller: LaunchAtLoginController
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "power.circle")
+                .font(.system(size: 22, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 36, height: 36)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("开机自启动")
+                    .font(.body.weight(.medium))
+
+                Text(controller.detailText)
+                    .font(.caption)
+                    .foregroundStyle(controller.errorMessage == nil ? Color.secondary : Color.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer()
+
+            Toggle(
+                "",
+                isOn: Binding {
+                    controller.isEnabled
+                } set: { isEnabled in
+                    controller.setEnabled(isEnabled)
+                }
+            )
+            .labelsHidden()
+            .toggleStyle(.switch)
+            .disabled(!controller.isAvailable)
+        }
+        .padding(.vertical, 10)
     }
 }
 

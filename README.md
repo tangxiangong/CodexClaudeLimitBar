@@ -10,6 +10,7 @@ The app is local-only: it reads the same credentials used by the official CLIs, 
 - The popover uses Chinese UI text and shows the minimum remaining percentage, visible provider count, 5-hour and weekly windows, reset countdowns, credit balance when available, and friendly error summaries.
 - Official color logo assets are used in the popover; dedicated SVG template assets are used in the menu bar so macOS can tint them correctly.
 - `设置` opens an in-panel page, not a separate Settings window. It controls whether Codex and Claude Code usage components are visible, persists the choices in `UserDefaults`, and prevents hiding both providers at the same time.
+- The settings page also provides a macOS login item toggle so the menu bar monitor can launch automatically after login.
 - The footer contains only `刷新`, `设置`, and `退出`; provider website links are intentionally not shown there.
 
 ## Data Sources
