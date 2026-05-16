@@ -4,6 +4,12 @@ public struct ClaudeCredentials: Equatable, Sendable {
     public let accessToken: String
     public let subscriptionType: String?
     public let rateLimitTier: String?
+    public let expiresAt: Date?
+
+    public var isExpired: Bool {
+        guard let expiresAt else { return false }
+        return Date() >= expiresAt
+    }
 }
 
 public actor ClaudeCredentialStore {
@@ -34,16 +40,41 @@ public actor ClaudeCredentialStore {
         throw UsageError.missingCredentials("Claude credentials not found. Run `claude /login` first.")
     }
 
+    public func refreshCredentials() async throws -> ClaudeCredentials {
+        let claudePath = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".local/bin/claude").path
+
+        guard FileManager.default.fileExists(atPath: claudePath) else {
+            throw UsageError.invalidCredentials("Claude CLI not found. Please reinstall Claude Code.")
+        }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: claudePath)
+        process.arguments = ["auth", "status"]
+        process.standardOutput = Pipe()
+        process.standardError = Pipe()
+
+        try process.run()
+        process.waitUntilExit()
+
+        return try loadCredentials()
+    }
+
     private func decodeCredentials(data: Data) throws -> ClaudeCredentials {
         let decoded = try JSONDecoder().decode(ClaudeCredentialsFile.self, from: data)
         guard let token = decoded.claudeAiOauth?.accessToken, !token.isEmpty else {
             throw UsageError.invalidCredentials("Claude credentials do not contain claudeAiOauth.accessToken.")
         }
 
+        let expiresAt: Date? = decoded.claudeAiOauth?.expiresAt.map {
+            Date(timeIntervalSince1970: Double($0) / 1000)
+        }
+
         return ClaudeCredentials(
             accessToken: token,
             subscriptionType: decoded.claudeAiOauth?.subscriptionType,
-            rateLimitTier: decoded.claudeAiOauth?.rateLimitTier
+            rateLimitTier: decoded.claudeAiOauth?.rateLimitTier,
+            expiresAt: expiresAt
         )
     }
 
@@ -80,5 +111,6 @@ private struct ClaudeCredentialsFile: Decodable {
         let accessToken: String?
         let subscriptionType: String?
         let rateLimitTier: String?
+        let expiresAt: Int64?
     }
 }

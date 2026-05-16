@@ -17,8 +17,26 @@ public actor ClaudeUsageProvider: UsageProvider {
     }
 
     public func fetchUsage() async throws -> ProviderUsage {
-        let credentials = try await credentialStore.loadCredentials()
+        var credentials = try await credentialStore.loadCredentials()
 
+        if credentials.isExpired {
+            credentials = try await credentialStore.refreshCredentials()
+        }
+
+        let response = try await performRequest(with: credentials)
+
+        if response.statusCode == 401 {
+            credentials = try await credentialStore.refreshCredentials()
+            let retryResponse = try await performRequest(with: credentials)
+            try retryResponse.requireSuccess(endpointName: "Claude usage")
+            return try decodeUsage(from: retryResponse, credentials: credentials)
+        }
+
+        try response.requireSuccess(endpointName: "Claude usage")
+        return try decodeUsage(from: response, credentials: credentials)
+    }
+
+    private func performRequest(with credentials: ClaudeCredentials) async throws -> HTTPResponse {
         guard let url = URL(string: "https://api.anthropic.com/api/oauth/usage") else {
             throw UsageError.requestFailed("Invalid Claude usage endpoint.")
         }
@@ -29,9 +47,10 @@ public actor ClaudeUsageProvider: UsageProvider {
         request.setValue("Bearer \(credentials.accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
 
-        let response = try await httpClient.data(for: request)
-        try response.requireSuccess(endpointName: "Claude usage")
+        return try await httpClient.data(for: request)
+    }
 
+    private func decodeUsage(from response: HTTPResponse, credentials: ClaudeCredentials) throws -> ProviderUsage {
         do {
             let payload = try decoder.decode(ClaudeUsagePayload.self, from: response.data)
             return try payload.providerUsage(
