@@ -121,7 +121,7 @@ final class LimitMonitor: ObservableObject {
                 return true
             }
 
-            if userInitiated && provider == .codex {
+            if userInitiated {
                 return true
             }
 
@@ -143,7 +143,7 @@ final class LimitMonitor: ObservableObject {
             } else if status.errorMessage != nil {
                 5 * 60
             } else {
-                10 * 60
+                120
             }
         }
     }

@@ -134,6 +134,15 @@ struct ProviderSectionView: View {
                     }
                     .font(.caption)
                 }
+
+                HStack {
+                    Label("上次刷新", systemImage: "clock")
+                        .foregroundStyle(.tertiary)
+                    Spacer()
+                    Text(usage.updatedAt.shortTimeString())
+                        .foregroundStyle(.tertiary)
+                }
+                .font(.caption2)
             } else if status.isRefreshing {
                 Text("正在刷新...")
                     .font(.caption)
@@ -318,7 +327,9 @@ struct LimitWindowRow: View {
             return "重置时间未知"
         }
 
-        return "\(resetDate.chineseRelativeLimitDescription()) 后重置"
+        let countdown = resetDate.chineseRelativeLimitDescription()
+        let absolute = resetDate.shortTimeString()
+        return "\(countdown) 后重置 (\(absolute))"
     }
 }
 
@@ -336,6 +347,12 @@ private extension LimitWindow {
 }
 
 private extension Date {
+    func shortTimeString() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = Calendar.current.isDateInToday(self) ? "HH:mm" : "MM-dd HH:mm"
+        return formatter.string(from: self)
+    }
+
     func chineseRelativeLimitDescription(now: Date = Date()) -> String {
         let interval = max(0, timeIntervalSince(now))
         let minutes = Int(interval / 60)
