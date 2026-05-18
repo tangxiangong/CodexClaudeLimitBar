@@ -6,6 +6,9 @@ APP_NAME="CodexClaudeLimitBar"
 BUNDLE_ID="com.xiaoyu.CodexClaudeLimitBar"
 MIN_SYSTEM_VERSION="14.0"
 BUILD_CONFIGURATION="release"
+APP_VERSION="${APP_VERSION:-0.1.0}"
+APP_BUILD="${APP_BUILD:-1}"
+CODE_SIGN_IDENTITY="${CODE_SIGN_IDENTITY:--}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
@@ -77,6 +80,10 @@ cat >"$INFO_PLIST" <<PLIST
   <string>$APP_NAME</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>$APP_VERSION</string>
+  <key>CFBundleVersion</key>
+  <string>$APP_BUILD</string>
   <key>LSMinimumSystemVersion</key>
   <string>$MIN_SYSTEM_VERSION</string>
   <key>LSUIElement</key>
@@ -87,7 +94,7 @@ cat >"$INFO_PLIST" <<PLIST
 </plist>
 PLIST
 
-/usr/bin/codesign --force --sign - "$APP_BUNDLE"
+/usr/bin/codesign --force --sign "$CODE_SIGN_IDENTITY" "$APP_BUNDLE"
 
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"

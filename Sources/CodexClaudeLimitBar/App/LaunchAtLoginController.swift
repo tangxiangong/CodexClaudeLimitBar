@@ -6,17 +6,22 @@ import ServiceManagement
 final class LaunchAtLoginController: ObservableObject {
     @Published private(set) var status: SMAppService.Status
     @Published private(set) var errorMessage: String?
+    private let launchAgent = LaunchAgentLoginItemController()
 
     init() {
         status = SMAppService.mainApp.status
     }
 
     var isEnabled: Bool {
-        status == .enabled || status == .requiresApproval
+        if status == .notFound {
+            return launchAgent.isRegistered
+        }
+
+        return status == .enabled || status == .requiresApproval
     }
 
     var isAvailable: Bool {
-        status != .notFound
+        status != .notFound || launchAgent.isAvailable
     }
 
     var detailText: String {
@@ -32,7 +37,15 @@ final class LaunchAtLoginController: ObservableObject {
         case .requiresApproval:
             return "需要在系统设置的登录项中允许"
         case .notFound:
-            return "当前运行方式不支持注册登录项"
+            if !launchAgent.isAvailable {
+                return "当前运行方式不支持注册登录项"
+            }
+
+            if launchAgent.isRegistered {
+                return "已使用本机 LaunchAgent 开机自启动"
+            }
+
+            return "未签名应用将使用本机 LaunchAgent 自启动"
         @unknown default:
             return "系统返回了未知的登录项状态"
         }
@@ -44,7 +57,13 @@ final class LaunchAtLoginController: ObservableObject {
 
     func setEnabled(_ isEnabled: Bool) {
         do {
-            if isEnabled {
+            if status == .notFound {
+                if isEnabled {
+                    try launchAgent.register()
+                } else {
+                    try launchAgent.unregister()
+                }
+            } else if isEnabled {
                 if status == .notRegistered {
                     try SMAppService.mainApp.register()
                 }

@@ -29,6 +29,11 @@ let package = Package(
             resources: [
                 .process("Resources")
             ]
+        ),
+        .testTarget(
+            name: "CodexClaudeLimitBarTests",
+            dependencies: ["CodexClaudeLimitBar"],
+            path: "Tests/CodexClaudeLimitBarTests"
         )
     ]
 )
