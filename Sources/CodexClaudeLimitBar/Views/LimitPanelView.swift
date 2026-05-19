@@ -273,7 +273,9 @@ struct LimitWindowRow: View {
             HStack {
                 Text("已用 \(window.roundedUsed)%")
                 Spacer()
-                Text(resetText)
+                TimelineView(.periodic(from: Date(), by: countdownTickInterval)) { context in
+                    Text(resetText(now: context.date))
+                }
             }
             .font(.caption2)
             .foregroundStyle(.tertiary)
@@ -281,12 +283,23 @@ struct LimitWindowRow: View {
         }
     }
 
-    private var resetText: String {
+    private var countdownTickInterval: TimeInterval {
+        switch window.kind {
+        case .fiveHour:
+            60
+        case .weekly:
+            3600
+        case .modelSpecific, .codeReview, .extra:
+            60
+        }
+    }
+
+    private func resetText(now: Date) -> String {
         guard let resetDate = window.resetDate else {
             return "重置时间未知"
         }
 
-        let countdown = resetDate.chineseRelativeLimitDescription()
+        let countdown = resetDate.chineseRelativeLimitDescription(now: now)
         let absolute = resetDate.shortTimeString()
         return "\(countdown) 后重置 (\(absolute))"
     }
